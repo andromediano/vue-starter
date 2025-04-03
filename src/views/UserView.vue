@@ -1,15 +1,17 @@
+<!-- src/App.vue -->
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSearchStore } from '@/stores/search'
 import axios from 'axios'
 
-// GitHub 사용자 인터페이스 정의
-interface GitHubUser {
+// DummyJSON 사용자 인터페이스 정의
+interface DummyUser {
   id: number
-  login: string
-  html_url: string
-  avatar_url: string
+  firstName: string
+  lastName: string
+  email: string
+  username: string
 }
 
 // 라우터와 라우트 사용
@@ -20,7 +22,7 @@ const route = useRoute()
 const searchStore = useSearchStore()
 
 // 반응형 변수 선언
-const users = ref<GitHubUser[]>([])
+const users = ref<DummyUser[]>([])
 const loading = ref<boolean>(false)
 const error = ref<string | null>(null)
 const currentPage = ref<number>(1)
@@ -40,7 +42,7 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// GitHub 사용자 검색 함수
+// DummyJSON 사용자 검색 함수
 const fetchUsers = async () => {
   if (!searchStore.searchQuery.trim()) {
     error.value = '검색어를 입력해주세요.'
@@ -53,21 +55,19 @@ const fetchUsers = async () => {
   error.value = null
 
   try {
-    const response = await axios.get('https://api.github.com/search/users', {
+    const skip = (currentPage.value - 1) * perPage.value
+    const response = await axios.get('https://dummyjson.com/users/search', {
       params: {
         q: searchStore.searchQuery,
-        page: currentPage.value,
-        per_page: perPage.value,
-      },
-      headers: {
-        Accept: 'application/vnd.github.v3+json',
+        limit: perPage.value,
+        skip: skip,
       },
     })
-    users.value = response.data.items
-    const totalCount = response.data.total_count
+    users.value = response.data.users
+    const totalCount = response.data.total
     totalPages.value = Math.ceil(totalCount / perPage.value)
 
-    // URL 업데이트 (페이지 번호만)
+    // URL에 페이지 번호 반영
     router.push({
       query: {
         page: currentPage.value.toString(),
@@ -92,23 +92,43 @@ const changePage = (page: number) => {
   }
 }
 
-// 라우트 변경 감지 및 초기화
+// 초기화 함수
+const initialize = () => {
+  const pageFromUrl = parseInt((route.query.page as string) || '1', 10)
+  console.log('Initializing with page:', pageFromUrl)
+  if (!isNaN(pageFromUrl) && pageFromUrl >= 1) {
+    currentPage.value = pageFromUrl
+  }
+  if (localStorage.getItem('searchQuery')) {
+    searchStore.setSearchQuery(localStorage.getItem('searchQuery') || '')
+  }
+  if (searchStore.searchQuery) {
+    fetchUsers()
+  }
+}
+
+// 컴포넌트 마운트 시 초기화
+onMounted(() => {
+  initialize()
+})
+
+// 라우트 변경 감지 (뒤로 가기/앞으로 가기)
 watch(
   () => route.query.page,
   (newPage) => {
     const pageFromUrl = parseInt((newPage as string) || '1', 10)
-    if (!isNaN(pageFromUrl) && pageFromUrl >= 1) {
+    if (!isNaN(pageFromUrl) && pageFromUrl >= 1 && pageFromUrl !== currentPage.value) {
       currentPage.value = pageFromUrl
       if (searchStore.searchQuery) fetchUsers()
     }
   },
-  { immediate: true },
 )
 
-// 검색어 변경 감지
+// 검색어 변경 감지 및 localStorage 동기화
 watch(
   () => searchStore.searchQuery,
-  () => {
+  (newQuery) => {
+    localStorage.setItem('searchQuery', newQuery)
     currentPage.value = 1 // 검색어가 바뀌면 첫 페이지로 리셋
     fetchUsers()
   },
@@ -117,14 +137,14 @@ watch(
 
 <template>
   <div class="container">
-    <h1>GitHub 사용자 검색</h1>
+    <h1>DummyJSON 사용자 검색</h1>
 
     <!-- 검색 입력 -->
     <div class="search-container">
       <input
         v-model="searchStore.searchQuery"
         @keyup.enter="fetchUsers"
-        placeholder="GitHub 사용자 검색 (예: octocat)"
+        placeholder="사용자 검색 (예: Emily)"
         type="text"
       />
       <button @click="fetchUsers" :disabled="loading">
@@ -138,8 +158,9 @@ watch(
 
     <ul v-if="users.length" class="user-list">
       <li v-for="user in users" :key="user.id">
-        <h2>{{ user.login }}</h2>
-        <p>{{ user.html_url }}</p>
+        <h2>{{ user.firstName }} {{ user.lastName }}</h2>
+        <p>{{ user.email }}</p>
+        <p>Username: {{ user.username }}</p>
       </li>
     </ul>
     <p v-else-if="!loading">사용자가 없습니다.</p>
