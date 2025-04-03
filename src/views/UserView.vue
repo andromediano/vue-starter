@@ -51,6 +51,7 @@ const fetchUsers = async () => {
     return
   }
 
+  console.log('Fetching users for page:', currentPage.value)
   loading.value = true
   error.value = null
 
@@ -95,44 +96,51 @@ const changePage = (page: number) => {
 // 초기화 함수
 const initialize = () => {
   const pageFromUrl = parseInt((route.query.page as string) || '1', 10)
-  console.log('Initializing with page:', pageFromUrl)
+  console.log('Initializing with page from URL:', pageFromUrl)
   if (!isNaN(pageFromUrl) && pageFromUrl >= 1) {
     currentPage.value = pageFromUrl
   }
-  if (localStorage.getItem('searchQuery')) {
-    searchStore.setSearchQuery(localStorage.getItem('searchQuery') || '')
+
+  const storedQuery = localStorage.getItem('searchQuery') || ''
+  if (storedQuery) {
+    console.log('Restoring searchQuery from localStorage:', storedQuery)
+    searchStore.setSearchQuery(storedQuery)
   }
+
   if (searchStore.searchQuery) {
     fetchUsers()
   }
 }
 
-// 컴포넌트 마운트 시 초기화
+// 컴포넌트 마운트 시 초기화 및 watch 설정
 onMounted(() => {
   initialize()
+
+  // 초기화 후에만 watch 활성화
+  watch(
+    () => searchStore.searchQuery,
+    (newQuery, oldQuery) => {
+      console.log('Search query changed from:', oldQuery, 'to:', newQuery)
+      if (newQuery !== oldQuery) {
+        localStorage.setItem('searchQuery', newQuery)
+        currentPage.value = 1 // 검색어가 바뀌면 첫 페이지로 리셋
+        fetchUsers()
+      }
+    },
+  )
+
+  watch(
+    () => route.query.page,
+    (newPage) => {
+      const pageFromUrl = parseInt((newPage as string) || '1', 10)
+      console.log('Route changed to page:', pageFromUrl)
+      if (!isNaN(pageFromUrl) && pageFromUrl >= 1 && pageFromUrl !== currentPage.value) {
+        currentPage.value = pageFromUrl
+        if (searchStore.searchQuery) fetchUsers()
+      }
+    },
+  )
 })
-
-// 라우트 변경 감지 (뒤로 가기/앞으로 가기)
-watch(
-  () => route.query.page,
-  (newPage) => {
-    const pageFromUrl = parseInt((newPage as string) || '1', 10)
-    if (!isNaN(pageFromUrl) && pageFromUrl >= 1 && pageFromUrl !== currentPage.value) {
-      currentPage.value = pageFromUrl
-      if (searchStore.searchQuery) fetchUsers()
-    }
-  },
-)
-
-// 검색어 변경 감지 및 localStorage 동기화
-watch(
-  () => searchStore.searchQuery,
-  (newQuery) => {
-    localStorage.setItem('searchQuery', newQuery)
-    currentPage.value = 1 // 검색어가 바뀌면 첫 페이지로 리셋
-    fetchUsers()
-  },
-)
 </script>
 
 <template>
