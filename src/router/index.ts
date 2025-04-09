@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
+import CharacterView from '../views/CharacterView.vue'
+import UserView from '../views/UserView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,7 +26,15 @@ const router = createRouter({
     {
       path: '/users',
       name: 'users',
-      component: () => import('../views/UserView.vue'),
+      component: UserView,
+      props: (route) => ({
+        page: parseInt(route.query.page as string) || 1,
+      }),
+    },
+    {
+      path: '/characters',
+      name: 'characters',
+      component: CharacterView,
       props: (route) => ({
         page: parseInt(route.query.page as string) || 1,
       }),
