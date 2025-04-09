@@ -1,9 +1,8 @@
-<!-- src/App.vue -->
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue'
+import axios from 'axios'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSearchStore } from '@/stores/search'
-import axios from 'axios'
 
 // DummyJSON 사용자 인터페이스 정의
 interface DummyUser {
@@ -44,14 +43,15 @@ const visiblePages = computed(() => {
 
 // DummyJSON 사용자 검색 함수
 const fetchUsers = async () => {
-  if (!searchStore.searchQuery.trim()) {
-    error.value = '검색어를 입력해주세요.'
+  const searchQuery = searchStore.getSearchQuery()
+  if (!searchQuery) {
+    error.value = '최소 하나의 검색어를 입력해주세요.'
     users.value = []
     totalPages.value = 0
     return
   }
 
-  console.log('Fetching users for page:', currentPage.value)
+  console.log('Fetching users for page:', currentPage.value, 'with query:', searchQuery)
   loading.value = true
   error.value = null
 
@@ -59,7 +59,7 @@ const fetchUsers = async () => {
     const skip = (currentPage.value - 1) * perPage.value
     const response = await axios.get('https://dummyjson.com/users/search', {
       params: {
-        q: searchStore.searchQuery,
+        q: searchQuery,
         limit: perPage.value,
         skip: skip,
       },
@@ -101,13 +101,16 @@ const initialize = () => {
     currentPage.value = pageFromUrl
   }
 
-  const storedQuery = localStorage.getItem('searchQuery') || ''
-  if (storedQuery) {
-    console.log('Restoring searchQuery from localStorage:', storedQuery)
-    searchStore.setSearchQuery(storedQuery)
-  }
+  const storedFirstName = localStorage.getItem('searchFirstName') || ''
+  const storedLastName = localStorage.getItem('searchLastName') || ''
+  const storedEmail = localStorage.getItem('searchEmail') || ''
+  searchStore.setSearchCriteria({
+    firstName: storedFirstName,
+    lastName: storedLastName,
+    email: storedEmail,
+  })
 
-  if (searchStore.searchQuery) {
+  if (searchStore.getSearchQuery()) {
     fetchUsers()
   }
 }
@@ -116,19 +119,22 @@ const initialize = () => {
 onMounted(() => {
   initialize()
 
-  // 초기화 후에만 watch 활성화
+  // 검색 조건 변경 감지 및 localStorage 동기화
   watch(
-    () => searchStore.searchQuery,
-    (newQuery, oldQuery) => {
-      console.log('Search query changed from:', oldQuery, 'to:', newQuery)
-      if (newQuery !== oldQuery) {
-        localStorage.setItem('searchQuery', newQuery)
-        currentPage.value = 1 // 검색어가 바뀌면 첫 페이지로 리셋
+    () => [searchStore.firstName, searchStore.lastName, searchStore.email],
+    ([newFirstName, newLastName, newEmail], [oldFirstName, oldLastName, oldEmail]) => {
+      console.log('Search criteria changed:', { newFirstName, newLastName, newEmail })
+      if (newFirstName !== oldFirstName || newLastName !== oldLastName || newEmail !== oldEmail) {
+        localStorage.setItem('searchFirstName', newFirstName)
+        localStorage.setItem('searchLastName', newLastName)
+        localStorage.setItem('searchEmail', newEmail)
+        currentPage.value = 1 // 검색 조건이 바뀌면 첫 페이지로 리셋
         fetchUsers()
       }
     },
   )
 
+  // 라우트 변경 감지 (뒤로 가기/앞으로 가기)
   watch(
     () => route.query.page,
     (newPage) => {
@@ -136,7 +142,7 @@ onMounted(() => {
       console.log('Route changed to page:', pageFromUrl)
       if (!isNaN(pageFromUrl) && pageFromUrl >= 1 && pageFromUrl !== currentPage.value) {
         currentPage.value = pageFromUrl
-        if (searchStore.searchQuery) fetchUsers()
+        if (searchStore.getSearchQuery()) fetchUsers()
       }
     },
   )
@@ -150,9 +156,21 @@ onMounted(() => {
     <!-- 검색 입력 -->
     <div class="search-container">
       <input
-        v-model="searchStore.searchQuery"
+        v-model="searchStore.firstName"
         @keyup.enter="fetchUsers"
-        placeholder="사용자 검색 (예: Emily)"
+        placeholder="이름 (예: Emily)"
+        type="text"
+      />
+      <input
+        v-model="searchStore.lastName"
+        @keyup.enter="fetchUsers"
+        placeholder="성 (예: Johnson)"
+        type="text"
+      />
+      <input
+        v-model="searchStore.email"
+        @keyup.enter="fetchUsers"
+        placeholder="이메일 (예: emily@example.com)"
         type="text"
       />
       <button @click="fetchUsers" :disabled="loading">
@@ -216,7 +234,7 @@ input {
   font-size: 16px;
   border: 1px solid #ddd;
   border-radius: 5px;
-  flex-grow: 1;
+  flex: 1;
 }
 
 button {
