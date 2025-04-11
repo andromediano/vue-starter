@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import AboutView from '../views/AboutView.vue'
 import HomeView from '../views/HomeView.vue'
 import CharacterView from '../views/CharacterView.vue'
 import UserView from '../views/UserView.vue'
@@ -17,7 +18,7 @@ const router = createRouter({
       // route level code-splitting
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
-      component: () => import('../views/AboutView.vue'),
+      component: AboutView,
       props: (route) => ({
         page: parseInt(route.query.page as string) || 1,
         query: (route.query.q as string) || '',

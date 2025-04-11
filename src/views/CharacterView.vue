@@ -112,10 +112,10 @@ onMounted(() => {
   // 검색 조건 변경 감지 및 localStorage 동기화
   watch(
     () => [
-      characterStore.name,
-      characterStore.status,
-      characterStore.species,
-      characterStore.gender,
+      characterStore.searchCriteria.name,
+      characterStore.searchCriteria.status,
+      characterStore.searchCriteria.species,
+      characterStore.searchCriteria.gender,
     ],
     ([newName, newStatus, newSpecies, newGender], [oldName, oldStatus, oldSpecies, oldGender]) => {
       console.log('Search criteria changed:', { newName, newStatus, newSpecies, newGender })
@@ -157,24 +157,24 @@ onMounted(() => {
     <!-- 검색 입력 -->
     <div class="search-container">
       <input
-        v-model="characterStore.name"
+        v-model="characterStore.searchCriteria.name"
         @keyup.enter="fetchCharacters"
         placeholder="이름 (예: Rick)"
         type="text"
       />
-      <select v-model="characterStore.status" @change="fetchCharacters">
+      <select v-model="characterStore.searchCriteria.status" @change="fetchCharacters">
         <option value="">상태 선택</option>
         <option value="alive">Alive</option>
         <option value="dead">Dead</option>
         <option value="unknown">Unknown</option>
       </select>
       <input
-        v-model="characterStore.species"
+        v-model="characterStore.searchCriteria.species"
         @keyup.enter="fetchCharacters"
         placeholder="종 (예: Human)"
         type="text"
       />
-      <select v-model="characterStore.gender" @change="fetchCharacters">
+      <select v-model="characterStore.searchCriteria.gender" @change="fetchCharacters">
         <option value="">성별 선택</option>
         <option value="male">Male</option>
         <option value="female">Female</option>
