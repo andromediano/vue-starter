@@ -20,9 +20,11 @@ export const useCharacterStore = defineStore('character', () => {
   const setSearchCriteria = (criteria: Partial<SearchCriteria>) => {
     Object.assign(searchCriteria.value, {
       ...searchCriteria.value,
-      ...Object.fromEntries(Object.entries(criteria).filter(([_, value]) => value !== undefined)),
+      ...Object.fromEntries(
+        Object.entries(criteria).filter(([_, value]) => value !== undefined),
+      ),
     })
-    console.log('Setting search criteria:', searchCriteria.value)
+    console.debug('📦 store: Setting search criteria:', searchCriteria.value)
   }
 
   const clearSearchCriteria = () => {

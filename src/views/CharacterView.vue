@@ -20,6 +20,7 @@ const route = useRoute()
 
 // Pinia 스토어 사용
 const characterStore = useCharacterStore()
+const STORAGE_KEY_CRITERIA = 'searchCriteria'
 
 // 반응형 변수 선언
 const characters = ref<Character[]>([])
@@ -44,17 +45,25 @@ const visiblePages = computed(() => {
 // Rick and Morty 캐릭터 검색 함수
 const fetchCharacters = async () => {
   const searchParams = characterStore.getSearchParams()
-  console.log('Fetching characters for page:', currentPage.value, 'with params:', searchParams)
+  console.debug(
+    '🚚 fetch: Fetching characters for page:',
+    currentPage.value,
+    'with params:',
+    searchParams,
+  )
   loading.value = true
   error.value = null
 
   try {
-    const response = await axios.get('https://rickandmortyapi.com/api/character', {
-      params: {
-        ...searchParams,
-        page: currentPage.value,
+    const response = await axios.get(
+      'https://rickandmortyapi.com/api/character',
+      {
+        params: {
+          ...searchParams,
+          page: currentPage.value,
+        },
       },
-    })
+    )
     characters.value = response.data.results
     totalPages.value = response.data.info.pages
 
@@ -86,21 +95,20 @@ const changePage = (page: number) => {
 // 초기화 함수
 const initialize = () => {
   const pageFromUrl = parseInt((route.query.page as string) || '1', 10)
-  console.log('Initializing with page from URL:', pageFromUrl)
+  console.debug('🏁 Initializing with page from URL:', pageFromUrl)
   if (!isNaN(pageFromUrl) && pageFromUrl >= 1) {
     currentPage.value = pageFromUrl
   }
 
-  const storedName = localStorage.getItem('searchName') || ''
-  const storedStatus = localStorage.getItem('searchStatus') || ''
-  const storedSpecies = localStorage.getItem('searchSpecies') || ''
-  const storedGender = localStorage.getItem('searchGender') || ''
-  characterStore.setSearchCriteria({
-    name: storedName,
-    status: storedStatus,
-    species: storedSpecies,
-    gender: storedGender,
-  })
+  const storedCriteria = localStorage.getItem(STORAGE_KEY_CRITERIA)
+  if (storedCriteria) {
+    try {
+      const parsedCriteria = JSON.parse(storedCriteria)
+      characterStore.setSearchCriteria(parsedCriteria)
+    } catch (e) {
+      console.error('localStorage 파싱 오류:', e)
+    }
+  }
 
   fetchCharacters() // 검색 조건 없이도 초기 데이터 로드
 }
@@ -111,28 +119,18 @@ onMounted(() => {
 
   // 검색 조건 변경 감지 및 localStorage 동기화
   watch(
-    () => [
-      characterStore.searchCriteria.name,
-      characterStore.searchCriteria.status,
-      characterStore.searchCriteria.species,
-      characterStore.searchCriteria.gender,
-    ],
-    ([newName, newStatus, newSpecies, newGender], [oldName, oldStatus, oldSpecies, oldGender]) => {
-      console.log('Search criteria changed:', { newName, newStatus, newSpecies, newGender })
-      if (
-        newName !== oldName ||
-        newStatus !== oldStatus ||
-        newSpecies !== oldSpecies ||
-        newGender !== oldGender
-      ) {
-        localStorage.setItem('searchName', newName)
-        localStorage.setItem('searchStatus', newStatus)
-        localStorage.setItem('searchSpecies', newSpecies)
-        localStorage.setItem('searchGender', newGender)
-        currentPage.value = 1 // 검색 조건이 바뀌면 첫 페이지로 리셋
-        fetchCharacters()
-      }
+    () => characterStore.searchCriteria,
+    (newCriteria, _) => {
+      console.debug('👀 watch: Search criteria changed:', newCriteria)
+      localStorage.setItem(STORAGE_KEY_CRITERIA, JSON.stringify(newCriteria))
+      // 검색 조건이 바뀌면 첫 페이지로 리셋
+      currentPage.value = 1
+      fetchCharacters()
     },
+    // 객체 내부 속성 변경 감지
+    // 이는 콜백이 실행되었다는 것 자체가 객체 내부가 변경됨을 의미하기 때문에 콜백내부에서
+    // newCriteria와 oldCriteria의 비교가 필요없다.
+    { deep: true },
   )
 
   // 라우트 변경 감지 (뒤로 가기/앞으로 가기)
@@ -140,8 +138,12 @@ onMounted(() => {
     () => route.query.page,
     (newPage) => {
       const pageFromUrl = parseInt((newPage as string) || '1', 10)
-      console.log('Route changed to page:', pageFromUrl)
-      if (!isNaN(pageFromUrl) && pageFromUrl >= 1 && pageFromUrl !== currentPage.value) {
+      console.debug('👀 watch: Route changed to page:', pageFromUrl)
+      if (
+        !isNaN(pageFromUrl) &&
+        pageFromUrl >= 1 &&
+        pageFromUrl !== currentPage.value
+      ) {
         currentPage.value = pageFromUrl
         fetchCharacters()
       }
@@ -160,9 +162,10 @@ onMounted(() => {
         v-model="characterStore.searchCriteria.name"
         @keyup.enter="fetchCharacters"
         placeholder="이름 (예: Rick)"
-        type="text"
-      />
-      <select v-model="characterStore.searchCriteria.status" @change="fetchCharacters">
+        type="text" />
+      <select
+        v-model="characterStore.searchCriteria.status"
+        @change="fetchCharacters">
         <option value="">상태 선택</option>
         <option value="alive">Alive</option>
         <option value="dead">Dead</option>
@@ -172,9 +175,10 @@ onMounted(() => {
         v-model="characterStore.searchCriteria.species"
         @keyup.enter="fetchCharacters"
         placeholder="종 (예: Human)"
-        type="text"
-      />
-      <select v-model="characterStore.searchCriteria.gender" @change="fetchCharacters">
+        type="text" />
+      <select
+        v-model="characterStore.searchCriteria.gender"
+        @change="fetchCharacters">
         <option value="">성별 선택</option>
         <option value="male">Male</option>
         <option value="female">Female</option>
@@ -192,12 +196,15 @@ onMounted(() => {
 
     <ul v-if="characters.length" class="character-list">
       <li v-for="character in characters" :key="character.id">
-        <img :src="character.image" alt="character image" class="character-image" />
+        <!-- <img
+          :src="character.image"
+          alt="character image"
+          class="character-image" /> -->
         <div class="character-info">
-          <h2>{{ character.name }}</h2>
-          <p>Status: {{ character.status }}</p>
-          <p>Species: {{ character.species }}</p>
-          <p>Gender: {{ character.gender }}</p>
+          <h3>{{ character.name }}</h3>
+          <span>Status: {{ character.status }}</span>
+          <span>Species: {{ character.species }}</span>
+          <span>Gender: {{ character.gender }}</span>
         </div>
       </li>
     </ul>
@@ -205,7 +212,9 @@ onMounted(() => {
 
     <!-- 페이지네이션 컨트롤 -->
     <div class="pagination" v-if="totalPages > 1">
-      <button @click="changePage(currentPage - 1)" :disabled="currentPage === 1 || loading">
+      <button
+        @click="changePage(currentPage - 1)"
+        :disabled="currentPage === 1 || loading">
         이전
       </button>
 
@@ -213,15 +222,13 @@ onMounted(() => {
         v-for="page in visiblePages"
         :key="page"
         @click="changePage(page)"
-        :class="{ active: page === currentPage }"
-      >
+        :class="{ active: page === currentPage }">
         {{ page }}
       </button>
 
       <button
         @click="changePage(currentPage + 1)"
-        :disabled="currentPage === totalPages || loading"
-      >
+        :disabled="currentPage === totalPages || loading">
         다음
       </button>
     </div>
