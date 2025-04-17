@@ -20,7 +20,6 @@ const route = useRoute()
 
 // Pinia 스토어 사용
 const characterStore = useCharacterStore()
-const STORAGE_KEY_CRITERIA = 'searchCriteria'
 
 // 반응형 변수 선언
 const characters = ref<Character[]>([])
@@ -100,16 +99,6 @@ const initialize = () => {
     currentPage.value = pageFromUrl
   }
 
-  const storedCriteria = localStorage.getItem(STORAGE_KEY_CRITERIA)
-  if (storedCriteria) {
-    try {
-      const parsedCriteria = JSON.parse(storedCriteria)
-      characterStore.setSearchCriteria(parsedCriteria)
-    } catch (e) {
-      console.error('localStorage 파싱 오류:', e)
-    }
-  }
-
   fetchCharacters() // 검색 조건 없이도 초기 데이터 로드
 }
 
@@ -122,7 +111,6 @@ onMounted(() => {
     () => characterStore.searchCriteria,
     (newCriteria, _) => {
       console.debug('👀 watch: Search criteria changed:', newCriteria)
-      localStorage.setItem(STORAGE_KEY_CRITERIA, JSON.stringify(newCriteria))
       // 검색 조건이 바뀌면 첫 페이지로 리셋
       currentPage.value = 1
       fetchCharacters()
