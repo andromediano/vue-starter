@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import axios from 'axios'
+import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCharacterStore } from '@/stores/CharacterStore'
@@ -20,6 +21,7 @@ const route = useRoute()
 
 // Pinia 스토어 사용
 const characterStore = useCharacterStore()
+const { searchCriteria } = storeToRefs(characterStore)
 
 // 반응형 변수 선언
 const characters = ref<Character[]>([])
@@ -108,7 +110,7 @@ onMounted(() => {
 
   // 검색 조건 변경 감지 및 localStorage 동기화
   watch(
-    () => characterStore.searchCriteria,
+    () => searchCriteria,
     (newCriteria, _) => {
       console.debug('👀 watch: Search criteria changed:', newCriteria)
       // 검색 조건이 바뀌면 첫 페이지로 리셋
@@ -147,26 +149,22 @@ onMounted(() => {
     <!-- 검색 입력 -->
     <div class="search-container">
       <input
-        v-model="characterStore.searchCriteria.name"
+        v-model="searchCriteria.name"
         @keyup.enter="fetchCharacters"
         placeholder="이름 (예: Rick)"
         type="text" />
-      <select
-        v-model="characterStore.searchCriteria.status"
-        @change="fetchCharacters">
+      <select v-model="searchCriteria.status" @change="fetchCharacters">
         <option value="">상태 선택</option>
         <option value="alive">Alive</option>
         <option value="dead">Dead</option>
         <option value="unknown">Unknown</option>
       </select>
       <input
-        v-model="characterStore.searchCriteria.species"
+        v-model="searchCriteria.species"
         @keyup.enter="fetchCharacters"
         placeholder="종 (예: Human)"
         type="text" />
-      <select
-        v-model="characterStore.searchCriteria.gender"
-        @change="fetchCharacters">
+      <select v-model="searchCriteria.gender" @change="fetchCharacters">
         <option value="">성별 선택</option>
         <option value="male">Male</option>
         <option value="female">Female</option>
