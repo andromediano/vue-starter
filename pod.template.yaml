@@ -1,20 +1,29 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: vue-starter-pod
+  name: ${PROJECT_CODE}-pod
   labels:
-    app: vue-starter
+    app: ${PROJECT_CODE}
 spec:
   containers:
   - name: postgres
     image: docker.io/library/postgres:latest
     env:
     - name: POSTGRES_USER
-      value: myuser # ✅ FIXME
+      valueFrom:
+        secretKeyRef:
+          name: my-secret
+          key: postgres-user
     - name: POSTGRES_PASSWORD
-      value: mypassword # ✅ FIXME
+      valueFrom:
+        secretKeyRef:
+          name: my-secret
+          key: postgres-password
     - name: POSTGRES_DB
-      value: mydb # ✅ FIXME
+      valueFrom:
+        secretKeyRef:
+          name: my-secret
+          key: postgres-db
     ports:
     - containerPort: 5432
       hostPort: 5432
@@ -24,5 +33,5 @@ spec:
   volumes:
   - name: postgres-data
     hostPath:
-      path: /Users/andromediano/development/podman/vue-starter/postgresql/data # ✅ FIXME
+      path: ${POSTGRES_DATA_PATH}
       type: Directory
